@@ -3,6 +3,10 @@
 #include "mbed.h"
 #include "arm_book_lib.h"
 
+//Como el codigo se rimpia al usar la funcion strlen hay que agregar estas librerias
+#include <stdio.h> // Para funciones de entrada/salida estándar
+#include <string.h> // Para la función strlen
+
 //=====[Defines]===============================================================
 
 #define NUMBER_OF_KEYS                           4
@@ -15,22 +19,44 @@
 
 //=====[Declaration and initialization of public global objects]===============
 
-DigitalIn enterButton(BUTTON1);
+/* 
+Esta bueno usar estas clases, pero se pierde el nombre de las variables
+lo cual hace que el codigo se vuelva mas complicado de seguir
+ */
+BusIn entradas(BUTTON1,D2,D4,D5,D6,D7,PE_12); // 0xPE_12|D7|D6|D5|D4|D2|BUTTON1
+/* DigitalIn enterButton(BUTTON1);
 DigitalIn alarmTestButton(D2);
 DigitalIn aButton(D4);
 DigitalIn bButton(D5);
 DigitalIn cButton(D6);
 DigitalIn dButton(D7);
-DigitalIn mq2(PE_12);
+DigitalIn mq2(PE_12); */
 
-DigitalOut alarmLed(LED1);
+/* 
+Si no la otra es hacer esto pero no siento que se gane mucho, es mas comodo usar las DigutalIn
+ */
+bool mq2 = (entradas.read() >> 6) & 1;
+bool alarmTestButton = (entradas.read() >> 1) & 1;
+
+BusInOut salidas(LED1,LED2,LED3); //1, 2, 4 0xLED3|LED2|LED1
+/* DigitalOut alarmLed(LED1);
 DigitalOut incorrectCodeLed(LED3);
-DigitalOut systemBlockedLed(LED2);
+DigitalOut systemBlockedLed(LED2); */
+
 
 DigitalInOut sirenPin(PE_10);
 
+/*  
+Esta clase llama a otra funcion de bajo nivel donde se configura el baudrate y
+el pin de tx y rx.
+*/
 UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 
+/* 
+La Analog In es una clase y esta clase tiene 2 constructores sobrecargados, mas el de defecto de c++.
+Luego dentro de los contructores utiliza analogin_init, y aca trabaja con un ADC especifico, en funcion
+del pin con el que se inicializo la clase y luego ya entra en los gpio.
+ */
 AnalogIn potentiometer(A0);
 AnalogIn lm35(A1);
 
@@ -55,6 +81,7 @@ float lm35ReadingsSum      = 0.0;
 float lm35ReadingsArray[NUMBER_OF_AVG_SAMPLES];
 float lm35TempC            = 0.0;
 
+
 //=====[Declarations (prototypes) of public functions]=========================
 
 void inputsInit();
@@ -66,16 +93,38 @@ void alarmDeactivationUpdate();
 void uartTask();
 void availableCommands();
 bool areEqual();
+
+/**
+ * @brief Conevierte de celsius a farenheite
+ * @note Esta funcion recibe una temperatura en grados celsius y a traves de una formula la pasa a farenheite
+ * @param tempInCelsiusDegrees recibe la temperatura como un float.
+ * @retval devuelve la temperatura farenheite como float.
+ */
 float celsiusToFahrenheit( float tempInCelsiusDegrees );
+
+/**
+ * @brief Conevierte de mv a grados celsius
+ * @note Esta funcion convierte milivolts leidos del ADC a un valor de temperatura usando una formula
+ * @param analogReading recibe la coneversion del ADC como un float.
+ * @retval devuelve la temperatura como float.
+ */
 float analogReadingScaledWithTheLM35Formula( float analogReading );
 
 //=====[Main function, the program entry point after power on or reset]========
 
 int main()
 {
+    //Configura todas las entradas del sistema (PullDown y OpenDrain)
     inputsInit();
+    //Setea las variables que se van a usar como salidas 
     outputsInit();
     while (true) {
+        /*Actualiza las variables qie se usan como salida en funcion de las entradas
+        Lee el sensor de temperatura y los demas botones y el potenciometro.
+        En particular con el sensor de temperatura se realiza un promedio para reducri el ruido 
+        Tambien tiene el inconveniente de que al inciar tenes valores incoherentes
+        */
+
         alarmActivationUpdate();
         alarmDeactivationUpdate();
         uartTask();
@@ -87,20 +136,28 @@ int main()
 
 void inputsInit()
 {
-    alarmTestButton.mode(PullDown);
+/*     alarmTestButton.mode(PullDown);
     aButton.mode(PullDown);
     bButton.mode(PullDown);
     cButton.mode(PullDown);
-    dButton.mode(PullDown);
+    dButton.mode(PullDown); */
+    entradas.mode(PullDown);
     sirenPin.mode(OpenDrain);
     sirenPin.input();
 }
 
 void outputsInit()
 {
-    alarmLed = OFF;
+/*     alarmLed = OFF;
     incorrectCodeLed = OFF;
-    systemBlockedLed = OFF;
+    systemBlockedLed = OFF; */
+
+/*     salidas.write(1);
+    salidas.write(2);
+    salidas.write(4); */
+
+    
+    salidas.write(0);
 }
 
 void alarmActivationUpdate()
@@ -148,27 +205,29 @@ void alarmActivationUpdate()
         if( gasDetectorState && overTempDetectorState ) {
             if( accumulatedTimeAlarm >= BLINKING_TIME_GAS_AND_OVER_TEMP_ALARM ) {
                 accumulatedTimeAlarm = 0;
-                alarmLed = !alarmLed;
+                /* alarmLed = !alarmLed; */
+                salidas.write(!(salidas.read() & 1));
             }
         } else if( gasDetectorState ) {
             if( accumulatedTimeAlarm >= BLINKING_TIME_GAS_ALARM ) {
                 accumulatedTimeAlarm = 0;
-                alarmLed = !alarmLed;
+                salidas.write(!(salidas.read() & 1));
             }
         } else if ( overTempDetectorState ) {
             if( accumulatedTimeAlarm >= BLINKING_TIME_OVER_TEMP_ALARM  ) {
                 accumulatedTimeAlarm = 0;
-                alarmLed = !alarmLed;
+                salidas.write(!(salidas.read() & 1));
             }
         }
     } else{
-        alarmLed = OFF;
+        //alarmLed = OFF;
+        salidas.write(0);
         gasDetectorState = OFF;
         overTempDetectorState = OFF;
         sirenPin.input();                                  
     }
 }
-
+/* 
 void alarmDeactivationUpdate()
 {
     if ( numberOfIncorrectCodes < 5 ) {
@@ -193,11 +252,39 @@ void alarmDeactivationUpdate()
     }
 }
 
+ */
+void alarmDeactivationUpdate()
+{
+    if ( numberOfIncorrectCodes < 5 ) {
+        if ( (entradas.read() >> 2) & 1 && (entradas.read() >> 3) & 1 && (entradas.read() >> 4) & 1 && (entradas.read() >> 5) & 1 && !(entradas.read() & 1) ) {
+            salidas.write(salidas.read() & 0x011) ;
+        }
+        if ( entradas.read() & 1 && !(salidas.read() >> 2 & 1) && alarmState ) {
+            buttonsPressed[0] = (entradas.read() >> 2) & 1;
+            buttonsPressed[1] = (entradas.read() >> 3) & 1;
+            buttonsPressed[2] = (entradas.read() >> 4) & 1;
+            buttonsPressed[3] = (entradas.read() >> 5) & 1;
+            if ( areEqual() ) {
+                alarmState = OFF;
+                numberOfIncorrectCodes = 0;
+            } else {
+                salidas.write(salidas.read() | 0x100);
+                numberOfIncorrectCodes++;
+            }
+        }
+    } else {
+        salidas.write(salidas.read() | 0x010);
+    }
+}
+
 void uartTask()
 {
     char receivedChar = '\0';
     char str[100];
     int stringLength;
+    /* 
+    Esta es una clase y utiliza un constructor que requiere el bausrate y los pines que van a usar como tx y rx
+     */
     if( uartUsb.readable() ) {
         uartUsb.read( &receivedChar, 1 );
         switch (receivedChar) {
@@ -261,11 +348,13 @@ void uartTask()
             if ( incorrectCode == false ) {
                 uartUsb.write( "\r\nThe code is correct\r\n\r\n", 25 );
                 alarmState = OFF;
-                incorrectCodeLed = OFF;
+                //incorrectCodeLed = OFF;
+                salidas.write(salidas.read() & 0x011);
                 numberOfIncorrectCodes = 0;
             } else {
                 uartUsb.write( "\r\nThe code is incorrect\r\n\r\n", 27 );
-                incorrectCodeLed = ON;
+                //incorrectCodeLed = ON;
+                salidas.write(salidas.read() | 0x100);
                 numberOfIncorrectCodes++;
             }                
             break;
@@ -331,6 +420,13 @@ void uartTask()
 
 void availableCommands()
 {
+    /* Diferencias entre uartUSB.write y printf
+    uartUsb.write se utiliza para enviar datos binarios o caracteres sin formateo a través de una conexión UART.
+    printf se utiliza para formatear y mostrar datos de manera legible por humanos en la consola o en otros 
+    flujos de salida, lo que facilita la visualización y la depuración de datos.
+    Tampoco hay que poner la cantidad de caracteras que imprimis por pantalla con printf
+     */
+
     uartUsb.write( "Available commands:\r\n", 21 );
     uartUsb.write( "Press '1' to get the alarm state\r\n", 34 );
     uartUsb.write( "Press '2' to get the gas detector state\r\n", 41 );
