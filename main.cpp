@@ -50,15 +50,91 @@ DigitalInOut sirenPin(PE_10);
 Esta clase llama a otra funcion de bajo nivel donde se configura el baudrate y
 el pin de tx y rx.
 */
-UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
+
+/* Analisis de Primitivas de la clase UnbufferedSerial
+EL contructor de la clase necesita el pin de tx, rx y el baudrate, si no se pone nada por defecto es 9600
+UnbufferedSerial(PinName tx,PinName rx,int baud = MBED_CONF_PLATFORM_DEFAULT_SERIAL_BAUD_RATE);
+
+escribe en el bus de datos, devuelve un sszite:t que puede ser de 32bits esto me sirve para saber
+si se escribio correctamente el bus, le paso un buffer de datos y el tamaño de el mismo.
+ El tipo void * se utiliza cuando no se tiene información sobre el tipo de datos que se encuentra en el búfer. 
+ El modificador const indica que la función no modificará los datos en el búfer.
+ El override al final de la función indica que esta función está sobrescribiendo una función virtual en una clase base. 
+ Esto es típico en el contexto de la programación orientada a objetos y la herencia
+ssize_t write(const void *buffer, size_t size) override;
+
+Me sirve para leer el bus de datos
+ssize_t read(void *buffer, size_t size) override;
+
+off_t es un tipo de dato utilizado en C++ que se utiliza comúnmente para representar desplazamientos o offsets en operaciones de archivos
+offset: Este es uno de los parámetros de la función. Indica la cantidad de bytes que se desea desplazar la posición actual en el archivo. 
+Si es positivo, se moverá hacia adelante en el archivo; si es negativo, se moverá hacia atrás.
+
+whence: Este es otro parámetro de la función que indica desde dónde se debe realizar el desplazamiento. Puede tomar uno de los siguientes valores:
+SEEK_SET: Mover desde el principio del archivo.
+SEEK_CUR: Mover desde la posición actual en el archivo.
+SEEK_END: Mover desde el final del archivo.
+la función seek se utiliza para cambiar la posición actual de lectura/escritura en un archivo a una ubicación 
+específica, especificada por el parámetro offset y el parámetro whence. La función devuelve la nueva posición 
+en el archivo después del desplazamiento y puede devolver un valor negativo si ocurre un error durante la operación 
+de búsqueda
+off_t seek(off_t offset, int whence = SEEK_SET) override.
+
+Devulve el tamaño del archivo
+off_t size() override
+
+Devulve verdadeo si el archvio se lee desde la terminal
+int isatty() override
+
+cierra el archivo y devuelve 0 si esta bien cerrado
+int close() override
+
+la función enable_input se utiliza para controlar si un dispositivo de entrada está habilitado o deshabilitado. 
+Esto puede ser útil para ahorrar energía o gestionar el estado de un dispositivo de E/S cuando no se necesita 
+entrada. La función devuelve un valor entero que indica si la operación fue exitosa o si se produjo un error, y 
+el parámetro enabled determina si se habilita o deshabilita la entrada del dispositivo.
+int enable_input(bool enabled) override;
+
+idem a la anterior pero para salida
+int enable_output(bool enabled) override;
+
+short poll(short events) const override;
+la función poll se utiliza para comprobar eventos de tipo poll en un dispositivo de E/S sin bloquear la ejecución 
+del programa. Devuelve una máscara de bits que indica qué eventos han ocurrido en el dispositivo. Esto es útil para 
+tomar decisiones basadas en la disponibilidad de lectura, escritura u otros eventos en el dispositivo sin esperar a 
+que ocurran.
+ */
+UnbufferedSerial uartUsb(USBTX, USBRX, 115200); //FALTA VER QUE REGISTRO MODIFICA
 
 /* 
 La Analog In es una clase y esta clase tiene 2 constructores sobrecargados, mas el de defecto de c++.
-Luego dentro de los contructores utiliza analogin_init, y aca trabaja con un ADC especifico, en funcion
+Luego dentro de los contructores utiliza analogin_init, y aca trabaja con un ADC especifico en la rtx_core, en funcion
 del pin con el que se inicializo la clase y luego ya entra en los gpio.
  */
-AnalogIn potentiometer(A0);
-AnalogIn lm35(A1);
+
+/* Analisis de Primitivas de la clase AnalogIn
+
+El constructor de la clase toma un PIN y por defecto un valor de voltage que se puede ajustar y esta sobrecargado.
+AnalogIn(PinName pin, float vref = MBED_CONF_TARGET_DEFAULT_ADC_VREF);
+
+Tengo una funcion para leer el objeto y me devulve un float entre 0 y 1.
+float read();
+
+Tambien puedo leer un short de 16bits
+unsigned short read_u16();
+
+Tambien puedo leer un valor de voltage pero depende de la placa que se este utilizando
+float read_voltage();
+
+void set_reference_voltage(float vref);
+Se puede setear el valor de voltage de referencia.
+
+float get_reference_voltage() const;
+Me devuelve el valor de voltage de referencia
+
+ */
+AnalogIn potentiometer(A0); //FALTA VER QUE REGISTRO MODIFICA
+AnalogIn lm35(A1); //FALTA VER QUE REGISTRO MODIFICA
 
 //=====[Declaration and initialization of public global variables]=============
 
